@@ -16,19 +16,30 @@ public class HdfsService {
 
     // Thay đổi các thông tin này cho phù hợp với cluster HDFS của bạn
     private static final String HDFS_URI = "hdfs://localhost:9000";
-    private static final String HDFS_UPLOAD_DIR = "/user/upload/";
+    private static final String HDFS_UPLOAD_DIR = "";
 
-    public void uploadFileToHdfs(MultipartFile file) throws Exception {
-        Configuration conf = new Configuration();
-        conf.set("fs.defaultFS", HDFS_URI);
+    public void uploadFileToHdfs(String path, MultipartFile file) throws Exception {
+        // Tạo cấu hình HDFS
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", HDFS_URI);
+        
+        // Tạo đối tượng FileSystem
+        FileSystem fileSystem = FileSystem.get(URI.create(HDFS_URI), configuration);
 
+        // Tạo đường dẫn HDFS
+        Path hdfsPath = new Path(HDFS_UPLOAD_DIR + path);
+        
+        // Kiểm tra xem thư mục đã tồn tại chưa, nếu không thì tạo mới
+        if (!fileSystem.exists(hdfsPath.getParent())) {
+            fileSystem.mkdirs(hdfsPath.getParent());
+        }
+
+        // Mở luồng đầu ra để ghi dữ liệu vào HDFS
         try (InputStream inputStream = file.getInputStream();
-             FileSystem fs = FileSystem.get(new URI(HDFS_URI), conf)) {
-
-            Path hdfsPath = new Path(HDFS_UPLOAD_DIR + file.getOriginalFilename());
-            try (FSDataOutputStream outputStream = fs.create(hdfsPath, true)) {
-                IOUtils.copy(inputStream, outputStream);
-            }
+             FSDataOutputStream outputStream = fileSystem.create(hdfsPath)) {
+            IOUtils.copy(inputStream, outputStream);
+        } finally {
+            fileSystem.close();
         }
     }
 }
